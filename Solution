@@ -1,0 +1,126 @@
+Q1
+#include <iostream>
+#include <thread>
+#include <vector>
+#include <semaphore.h>
+#include <mutex>
+#include <unistd.h>
+
+using namespace std;
+
+sem_t parkingSpots;
+mutex mtx;
+int totalParked = 0;
+
+void carArrives(int carId) {
+    cout << "Car " << carId << " arrives at the parking lot." << endl;
+    if (sem_trywait(&parkingSpots) == 0) {
+        mtx.lock();
+        totalParked++;
+        cout << "Car " << carId << " parked." << endl;
+        mtx.unlock();
+        sleep(2);
+        mtx.lock();
+        totalParked--;
+        cout << "Car " << carId << " leaves the parking lot." << endl;
+        mtx.unlock();
+        sem_post(&parkingSpots);
+    } else {
+        cout << "Car " << carId << " is waiting for a spot." << endl;
+        sem_wait(&parkingSpots);
+        mtx.lock();
+        totalParked++;
+        cout << "Car " << carId << " parked." << endl;
+        mtx.unlock();
+        sleep(2);
+        mtx.lock();
+        totalParked--;
+        cout << "Car " << carId << " leaves the parking lot." << endl;
+        mtx.unlock();
+        sem_post(&parkingSpots);
+    }
+}
+
+int main() {
+    sem_init(&parkingSpots, 0, 10);
+    vector<thread> cars;
+
+    for (int i = 1; i <= 15; i++) {
+        cars.push_back(thread(carArrives, i));
+        sleep(1);
+    }
+
+    for (auto &c : cars) {
+        c.join();
+    }
+
+    sem_destroy(&parkingSpots);
+    return 0;
+}
+
+Q2
+#include <iostream>
+#include <thread>
+#include <string>
+#include <cctype>
+using namespace std;
+
+int vowelCount = 0;
+int consonantCount = 0;
+int wordCount = 0;
+string sentence;
+
+void countVowels() {
+    for (char ch : sentence) {
+        char lower = tolower(ch);
+        if (lower == 'a' || lower == 'e' || lower == 'i' || lower == 'o' || lower == 'u') {
+            vowelCount++;
+        }
+    }
+    cout << "Thread 1 [Vowels]: Count = " << vowelCount << endl;
+}
+
+void countConsonants() {
+    for (char ch : sentence) {
+        if (isalpha(ch)) {
+            char lower = tolower(ch);
+            if (!(lower == 'a' || lower == 'e' || lower == 'i' || lower == 'o' || lower == 'u')) {
+                consonantCount++;
+            }
+        }
+    }
+    cout << "Thread 2 [Consonants]: Count = " << consonantCount << endl;
+}
+
+void countWords() {
+    bool inWord = false;
+    for (char ch : sentence) {
+        if (isspace(ch)) {
+            if (inWord) {
+                wordCount++;
+                inWord = false;
+            }
+        } else {
+            inWord = true;
+        }
+    }
+    if (inWord) {
+        wordCount++;
+    }
+    cout << "Thread 3 [Words]: Count = " << wordCount << endl;
+}
+
+int main() {
+    cout << "Enter a sentence:\n";
+    getline(cin, sentence);
+
+    thread t1(countVowels);
+    thread t2(countConsonants);
+    thread t3(countWords);
+
+    t1.join();
+    t2.join();
+    t3.join();
+
+    return 0;
+}
