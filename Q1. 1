@@ -1,0 +1,88 @@
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <vector>
+#include <semaphore.h>
+#include <chrono>
+
+using namespace std;
+
+// Semaphore to allow max 3 cars at the toll booth
+sem_t tollBoothSemaphore;
+
+// Mutex for printing and queue handling
+mutex printMutex;
+
+// Simulate car behavior at toll booth
+void car(int carId) {
+    {
+        lock_guard<mutex> lock(printMutex);
+        cout << "Car " << carId << " arrives at the toll booth." << endl;
+    }
+
+    // Try to acquire a spot at the toll booth
+    if (sem_trywait(&tollBoothSemaphore) == 0) {
+        {
+            lock_guard<mutex> lock(printMutex);
+            cout << "Car " << carId << " passed through the toll booth." << endl;
+        }
+
+        // Simulate time taken to pass through the toll booth
+        this_thread::sleep_for(chrono::seconds(3));
+
+        {
+            lock_guard<mutex> lock(printMutex);
+            cout << "Car " << carId << " leaves the toll booth." << endl;
+        }
+
+        // Release the spot for another car
+        sem_post(&tollBoothSemaphore);
+    } else {
+        {
+            lock_guard<mutex> lock(printMutex);
+            cout << "Car " << carId << " is waiting for a spot to be available." << endl;
+        }
+
+        // Wait until a spot becomes available
+        sem_wait(&tollBoothSemaphore);
+
+        {
+            lock_guard<mutex> lock(printMutex);
+            cout << "Car " << carId << " passed through the toll booth." << endl;
+        }
+
+        // Simulate time taken to pass through the toll booth
+        this_thread::sleep_for(chrono::seconds(3));
+
+        {
+            lock_guard<mutex> lock(printMutex);
+            cout << "Car " << carId << " leaves the toll booth." << endl;
+        }
+
+        sem_post(&tollBoothSemaphore);
+    }
+}
+
+int main() {
+    // Initialize semaphore with 3 available spots
+    sem_init(&tollBoothSemaphore, 0, 3);
+
+    // Vector to hold car threads
+    vector<thread> carThreads;
+
+    // Simulate 6 cars arriving at different times
+    for (int i = 1; i <= 6; ++i) {
+        carThreads.push_back(thread(car, i));
+        this_thread::sleep_for(chrono::milliseconds(500)); // Delay between arrivals
+    }
+
+    // Join all threads
+    for (auto& t : carThreads) {
+        t.join();
+    }
+
+    // Destroy the semaphore
+    sem_destroy(&tollBoothSemaphore);
+
+    return 0;
+}
