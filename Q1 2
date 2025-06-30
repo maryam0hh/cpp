@@ -1,0 +1,63 @@
+#include <iostream>
+#include <vector>
+#include <thread>
+#include <limits>
+#include <numeric> // For accumulate
+
+using namespace std;
+
+// Function to calculate and display average, max, min for a subject
+void analyzeMarks(const vector<int>& marks, const string& subject, int threadNumber) {
+    int maxMark = numeric_limits<int>::min();
+    int minMark = numeric_limits<int>::max();
+    double sum = 0;
+
+    for (int mark : marks) {
+        sum += mark;
+        if (mark > maxMark) maxMark = mark;
+        if (mark < minMark) minMark = mark;
+    }
+
+    double average = sum / marks.size();
+    cout << "Thread " << threadNumber << " [" << subject << "]: "
+         << "Average = " << average 
+         << ", Max = " << maxMark 
+         << ", Min = " << minMark << endl;
+}
+
+int main() {
+    int numStudents;
+    cout << "Enter number of students: ";
+    cin >> numStudents;
+
+    vector<int> mathMarks(numStudents);
+    vector<int> physicsMarks(numStudents);
+    vector<int> computerMarks(numStudents);
+
+    cout << "Enter Math marks:\n";
+    for (int i = 0; i < numStudents; ++i) {
+        cin >> mathMarks[i];
+    }
+
+    cout << "Enter Physics marks:\n";
+    for (int i = 0; i < numStudents; ++i) {
+        cin >> physicsMarks[i];
+    }
+
+    cout << "Enter Computer marks:\n";
+    for (int i = 0; i < numStudents; ++i) {
+        cin >> computerMarks[i];
+    }
+
+    // Launching threads
+    thread t1(analyzeMarks, ref(mathMarks), "Math", 1);
+    thread t2(analyzeMarks, ref(physicsMarks), "Physics", 2);
+    thread t3(analyzeMarks, ref(computerMarks), "Computer", 3);
+
+    // Wait for threads to finish
+    t1.join();
+    t2.join();
+    t3.join();
+
+    return 0;
+}
