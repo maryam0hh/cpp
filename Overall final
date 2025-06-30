@@ -1,0 +1,169 @@
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <vector>
+#include <map>
+#include <chrono>
+using namespace std;
+
+// ---------- Basic Multithreading ----------
+void printMessage1() {
+    cout << "Hello from thread 1\n";
+}
+void printMessage2() {
+    cout << "Hello from thread 2\n";
+}
+void checkEvenOdd(int num) {
+    if (num % 2 == 0)
+        cout << num << " is even\n";
+    else
+        cout << num << " is odd\n";
+}
+void printThreadNum(int num) {
+    cout << "Thread number: " << num << endl;
+}
+
+// ---------- Producer Consumer ----------
+mutex mtx;
+condition_variable cv;
+vector<int> buffer;
+const unsigned int maxBufferSize = 5;
+bool done = false;
+
+void producer() {
+    for (int i = 1; i <= 10; i++) {
+        unique_lock<mutex> lock(mtx);
+        cv.wait(lock, [] { return buffer.size() < maxBufferSize; });
+        buffer.push_back(i);
+        cout << "Produced: " << i << endl;
+        cv.notify_all();
+    }
+    done = true;
+    cv.notify_all();
+}
+
+void consumer() {
+    while (!done || !buffer.empty()) {
+        unique_lock<mutex> lock(mtx);
+        cv.wait(lock, [] { return !buffer.empty() || done; });
+        if (!buffer.empty()) {
+            int val = buffer.back();
+            buffer.pop_back();
+            cout << "Consumed: " << val << endl;
+        }
+        cv.notify_all();
+    }
+}
+
+// ---------- Reader Writer ----------
+mutex rw_mtx;
+int readers = 0;
+void reader(int id) {
+    {
+        lock_guard<mutex> lock(rw_mtx);
+        readers++;
+        cout << "Reader " << id << " is reading\n";
+    }
+    this_thread::sleep_for(chrono::milliseconds(100));
+    {
+        lock_guard<mutex> lock(rw_mtx);
+        readers--;
+        cout << "Reader " << id << " finished\n";
+    }
+}
+
+void writer(int id) {
+    lock_guard<mutex> lock(rw_mtx);
+    cout << "Writer " << id << " is writing\n";
+    this_thread::sleep_for(chrono::milliseconds(100));
+    cout << "Writer " << id << " finished\n";
+}
+
+// ---------- Dining Philosophers ----------
+mutex forks[5];
+void philosopher(int id) {
+    int left = id;
+    int right = (id + 1) % 5;
+    if (id == 4) swap(left, right); // avoid deadlock
+    for (int i = 0; i < 1; i++) {
+        {
+            lock_guard<mutex> l1(forks[left]);
+            lock_guard<mutex> l2(forks[right]);
+            cout << "Philosopher " << id << " is eating\n";
+        }
+        cout << "Philosopher " << id << " is thinking\n";
+    }
+}
+
+// ---------- Array Operations ----------
+void arraySum(const vector<int>& arr, int& sum) {
+    sum = 0;
+    for (int val : arr) sum += val;
+}
+
+void arrayAverage(const vector<int>& arr, double& avg) {
+    int sum = 0;
+    for (int val : arr) sum += val;
+    avg = sum / (double)arr.size();
+}
+
+// ---------- Matrix Multiplication ----------
+const int ROWS_A = 200, COLS_A = 100, COLS_B = 300;
+vector<vector<int>> A(ROWS_A, vector<int>(COLS_A, 1));
+vector<vector<int>> B(COLS_A, vector<int>(COLS_B, 1));
+vector<vector<int>> C(ROWS_A, vector<int>(COLS_B, 0));
+
+void multiplyPart(int startRow, int endRow) {
+    for (int i = startRow; i < endRow; i++)
+        for (int j = 0; j < COLS_B; j++)
+            for (int k = 0; k < COLS_A; k++)
+                C[i][j] += A[i][k] * B[k][j];
+}
+
+int main() {
+    // Basic multithreading
+    thread t1(printMessage1);
+    thread t2(printMessage2);
+    t1.join(); t2.join();
+
+    thread t3(checkEvenOdd, 5);
+    t3.join();
+
+    for (int i = 0; i < 5; i++)
+        thread(printThreadNum, i).detach();
+
+    // Producer-Consumer
+    thread p(producer);
+    thread c(consumer);
+    p.join();
+    c.join();
+
+    // Reader-Writer
+    thread r1(reader, 1);
+    thread w1(writer, 1);
+    thread r2(reader, 2);
+    r1.join(); w1.join(); r2.join();
+
+    // Dining Philosophers
+    vector<thread> philosophers;
+    for (int i = 0; i < 5; i++)
+        philosophers.push_back(thread(philosopher, i));
+    for (auto& t : philosophers) t.join();
+
+    // Array operations
+    vector<int> arr(10000, 1);
+    int sum;
+    double avg;
+    arraySum(arr, sum);
+    arrayAverage(arr, avg);
+    cout << "Sum: " << sum << ", Average: " << avg << endl;
+
+    // Matrix multiplication with threads
+    thread m1(multiplyPart, 0, 100);
+    thread m2(multiplyPart, 100, 200);
+    m1.join(); m2.join();
+    cout << "Matrix multiplication done.\n";
+
+    return 0;
+}
